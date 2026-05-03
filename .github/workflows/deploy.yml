@@ -1,0 +1,62 @@
+name: Deploy
+
+# Manuel tetikleme — AWS / EB hazır olduğunda buraya eb deploy veya docker push eklenir.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Hedef ortam etiketi (raporlama için)"
+        required: true
+        default: staging
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ön koşul kontrolü
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        run: |
+          echo "Hedef (workflow input): ${{ inputs.target }}"
+          if [ -z "${AWS_ACCESS_KEY_ID:-}" ]; then
+            echo "::notice title=Deploy::AWS kimlik bilgileri tanımlı değil; gerçek deploy çalıştırılmadı. DEVOPS.md içindeki EB+RDS adımlarını tamamlayıp AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY ve isteğe bağlı EB_APPLICATION_NAME secrets ekleyin."
+            exit 0
+          fi
+          echo "AWS_ACCESS_KEY_ID mevcut — bir sonraki adımda eb deploy / aws CLI komutlarını ekleyin."
+
+      # Örnek (secrets hazır olduğunda yorumu kaldırın):
+      # - uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ${{ secrets.AWS_REGION }}
+      # - name: Elastic Beanstalk deploy
+      #   run: |
+      #     pip install awsebcli
+      #     eb deploy ${{ secrets.EB_ENVIRONMENT_NAME }}
+
+  notify-deploy:
+    name: Slack (deploy)
+    needs: [deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack deploy ozeti
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "SLACK_WEBHOOK_URL yok — atlanıyor."
+            exit 0
+          fi
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          DEPLOY_UPPER=$(echo "$DEPLOY_RESULT" | tr '[:lower:]' '[:upper:]')
+          MSG="*Commerce Deploy* — ${DEPLOY_UPPER}"$'\n'"• Hedef: \`${{ inputs.target }}\`"$'\n'"• Tetikleyen: \`${{ github.actor }}\`"$'\n'"• <${RUN_URL}|Workflow logları>"
+          jq -n --arg text "$MSG" '{"text": $text}' | curl -sS -X POST \
+            -H 'Content-type: application/json' \
+            -d @- \
+            "$SLACK_WEBHOOK_URL"

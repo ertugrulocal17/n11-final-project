@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: payment-service
+
+server:
+  port: ${PORT:${PAYMENT_SERVICE_PORT:8085}}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET:commerce-dev-jwt-secret-key-min-32-chars!!}
+    expiration-ms: 86400000
+  iyzico:
+    enabled: ${APP_IYZICO_ENABLED:false}
+    api-key: ${APP_IYZICO_API_KEY:}
+    secret-key: ${APP_IYZICO_SECRET_KEY:}
+    base-url: ${APP_IYZICO_BASE_URL:https://sandbox-api.iyzipay.com}
+    callback-url: ${APP_IYZICO_CALLBACK_URL:http://localhost:8080/api/v1/payments/iyzico/callback}
+    test-buyer-identity-number: ${APP_IYZICO_TEST_IDENTITY:74300864791}
+
+commerce:
+  services:
+    order-base-url: ${ORDER_SERVICE_URL:http://localhost:8084}
+    auth-base-url: ${AUTH_SERVICE_URL:http://localhost:8081}
+  internal:
+    service-token: ${COMMERCE_INTERNAL_SERVICE_TOKEN:dev-internal-token}
+
+logging:
+  level:
+    root: INFO

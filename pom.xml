@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.6</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.n11bootcamp</groupId>
+    <artifactId>commerce-parent</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>commerce-parent</name>
+    <description>N11 bootcamp — mikroservis monorepo (com.n11bootcamp)</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <springdoc.version>3.0.3</springdoc.version>
+        <jjwt.version>0.12.6</jjwt.version>
+        <!-- Boot 4.x requires Oakwood (2025.1.x); 2025.0.x targets Boot 3.5 and breaks at runtime (ServerProperties move). -->
+        <spring-cloud.version>2025.1.0</spring-cloud.version>
+        <jib-maven-plugin.version>3.4.6</jib-maven-plugin.version>
+        <jib.from.image>eclipse-temurin:21-jre-alpine</jib.from.image>
+        <jib.to.image.prefix>commerce</jib.to.image.prefix>
+        <jib.container.port>8080</jib.container.port>
+    </properties>
+
+    <modules>
+        <module>libs/commerce-common</module>
+        <module>libs/commerce-jwt-resource</module>
+        <module>services/auth-service</module>
+        <module>services/product-service</module>
+        <module>services/cart-service</module>
+        <module>services/order-service</module>
+        <module>services/payment-service</module>
+        <module>gateway/api-gateway</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.n11bootcamp</groupId>
+                <artifactId>commerce-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.n11bootcamp</groupId>
+                <artifactId>commerce-jwt-resource</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>com.google.cloud.tools</groupId>
+                    <artifactId>jib-maven-plugin</artifactId>
+                    <version>${jib-maven-plugin.version}</version>
+                    <configuration>
+                        <from>
+                            <image>${jib.from.image}</image>
+                        </from>
+                        <to>
+                            <image>${jib.to.image.prefix}/${project.artifactId}:${project.version}</image>
+                        </to>
+                        <container>
+                            <ports>
+                                <port>${jib.container.port}</port>
+                            </ports>
+                            <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
+                            <labels>
+                                <org.opencontainers.image.title>${project.name}</org.opencontainers.image.title>
+                            </labels>
+                        </container>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

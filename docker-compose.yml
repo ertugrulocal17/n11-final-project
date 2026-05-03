@@ -1,0 +1,188 @@
+x-health-http: &health-http
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 90s
+
+x-common-env: &common-env
+  APP_JWT_SECRET: ${APP_JWT_SECRET:-commerce-dev-jwt-secret-key-min-32-chars!!}
+  COMMERCE_INTERNAL_SERVICE_TOKEN: ${COMMERCE_INTERNAL_SERVICE_TOKEN:-dev-internal-token}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: commerce_auth
+      POSTGRES_USER: commerce
+      POSTGRES_PASSWORD: commerce
+    ports:
+      - "5432:5432"
+    volumes:
+      - commerce_pg_bootcamp:/var/lib/postgresql/data
+      - ./docker/postgres-init/01-create-databases.sql:/docker-entrypoint-initdb.d/01-create-databases.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U commerce -d commerce_auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: auth-service
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      AUTH_DB_HOST: postgres
+      AUTH_DB_PORT: "5432"
+      AUTH_DB_NAME: commerce_auth
+      AUTH_DB_USER: commerce
+      AUTH_DB_PASSWORD: commerce
+      AUTH_SERVICE_PORT: "8081"
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-http
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8081/actuator/health"]
+
+  product-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: product-service
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      PRODUCT_DB_HOST: postgres
+      PRODUCT_DB_PORT: "5432"
+      PRODUCT_DB_NAME: commerce_product
+      PRODUCT_DB_USER: commerce
+      PRODUCT_DB_PASSWORD: commerce
+      PRODUCT_SERVICE_PORT: "8082"
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-http
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8082/actuator/health"]
+
+  cart-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: cart-service
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      CART_DB_HOST: postgres
+      CART_DB_PORT: "5432"
+      CART_DB_NAME: commerce_cart
+      CART_DB_USER: commerce
+      CART_DB_PASSWORD: commerce
+      CART_SERVICE_PORT: "8083"
+      PRODUCT_SERVICE_URL: http://product-service:8082
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-http
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8083/actuator/health"]
+
+  order-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: order-service
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      ORDER_DB_HOST: postgres
+      ORDER_DB_PORT: "5432"
+      ORDER_DB_NAME: commerce_order
+      ORDER_DB_USER: commerce
+      ORDER_DB_PASSWORD: commerce
+      ORDER_SERVICE_PORT: "8084"
+      CART_SERVICE_URL: http://cart-service:8083
+      PRODUCT_SERVICE_URL: http://product-service:8082
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-http
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8084/actuator/health"]
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: payment-service
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      PAYMENT_SERVICE_PORT: "8085"
+      ORDER_SERVICE_URL: http://order-service:8084
+      AUTH_SERVICE_URL: http://auth-service:8081
+      APP_IYZICO_CALLBACK_URL: ${APP_IYZICO_CALLBACK_URL:-http://localhost:8080/api/v1/payments/iyzico/callback}
+      APP_IYZICO_ENABLED: ${APP_IYZICO_ENABLED:-false}
+      APP_IYZICO_API_KEY: ${APP_IYZICO_API_KEY:-}
+      APP_IYZICO_SECRET_KEY: ${APP_IYZICO_SECRET_KEY:-}
+      APP_IYZICO_BASE_URL: ${APP_IYZICO_BASE_URL:-https://sandbox-api.iyzipay.com}
+    ports:
+      - "8085:8085"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-http
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8085/actuator/health"]
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: api-gateway
+    restart: unless-stopped
+    environment:
+      GATEWAY_PORT: "8080"
+      AUTH_URI: http://auth-service:8081
+      PRODUCT_URI: http://product-service:8082
+      CART_URI: http://cart-service:8083
+      ORDER_URI: http://order-service:8084
+      PAYMENT_URI: http://payment-service:8085
+    ports:
+      - "8080:8080"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-http
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8080/actuator/health"]
+
+volumes:
+  commerce_pg_bootcamp:

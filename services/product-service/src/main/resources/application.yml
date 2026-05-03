@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: product-service
+  datasource:
+    url: jdbc:postgresql://${PRODUCT_DB_HOST:localhost}:${PRODUCT_DB_PORT:5432}/${PRODUCT_DB_NAME:commerce_product}
+    username: ${PRODUCT_DB_USER:commerce}
+    password: ${PRODUCT_DB_PASSWORD:commerce}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+server:
+  port: ${PORT:${PRODUCT_SERVICE_PORT:8082}}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+commerce:
+  internal:
+    service-token: ${COMMERCE_INTERNAL_SERVICE_TOKEN:dev-internal-token}
+
+logging:
+  level:
+    root: INFO

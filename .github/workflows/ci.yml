@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Maven verify
+        run: ./mvnw -B verify
+
+  notify:
+    name: Slack bildirimi
+    needs: [verify]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack ozeti gonder
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "SLACK_WEBHOOK_URL tanımlı değil — bildirim atlanıyor (DEVOPS.md)."
+            exit 0
+          fi
+          EVENT="${{ github.event_name }}"
+          REPO="${{ github.repository }}"
+          REF="${{ github.ref_name }}"
+          SHA="${{ github.sha }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ACTOR="${{ github.actor }}"
+          VERIFY_UPPER=$(echo "$VERIFY_RESULT" | tr '[:lower:]' '[:upper:]')
+          MSG="*Commerce CI* — ${VERIFY_UPPER}"$'\n'"• Event: \`${EVENT}\`"$'\n'"• Repo: \`${REPO}\`"$'\n'"• Ref: \`${REF}\`"$'\n'"• SHA: \`${SHA:0:7}\`"$'\n'"• Tetikleyen: \`${ACTOR}\`"$'\n'"• <${RUN_URL}|Workflow logları>"
+          jq -n --arg text "$MSG" '{"text": $text}' | curl -sS -X POST \
+            -H 'Content-type: application/json' \
+            -d @- \
+            "$SLACK_WEBHOOK_URL"

@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: jdbc:postgresql://${ORDER_DB_HOST:localhost}:${ORDER_DB_PORT:5432}/${ORDER_DB_NAME:commerce_order}
+    username: ${ORDER_DB_USER:commerce}
+    password: ${ORDER_DB_PASSWORD:commerce}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+server:
+  port: ${PORT:${ORDER_SERVICE_PORT:8084}}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET:commerce-dev-jwt-secret-key-min-32-chars!!}
+    expiration-ms: 86400000
+
+commerce:
+  services:
+    cart-base-url: ${CART_SERVICE_URL:http://localhost:8083}
+    product-base-url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+  internal:
+    service-token: ${COMMERCE_INTERNAL_SERVICE_TOKEN:dev-internal-token}
+
+logging:
+  level:
+    root: INFO

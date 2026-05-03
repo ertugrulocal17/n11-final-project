@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          globalcors:
+            corsConfigurations:
+              '[/**]':
+                allowedOriginPatterns:
+                  - http://localhost:5173
+                  - http://localhost:3000
+                  - http://localhost:8080
+                  - http://commerce-api-gateway-env.eba-p3e2kxpx.us-east-1.elasticbeanstalk.com
+                  - https://n11-final-project.vercel.app
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders: "*"
+                allowCredentials: true
+          routes:
+            - id: auth-login-register
+              uri: ${AUTH_URI:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/auth/**
+            - id: auth-me
+              uri: ${AUTH_URI:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/me
+            - id: payments-callback
+              uri: ${PAYMENT_URI:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/payments/**
+            - id: order-payment-init
+              uri: ${PAYMENT_URI:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/orders/*/payment/**
+            - id: orders
+              uri: ${ORDER_URI:http://localhost:8084}
+              predicates:
+                - Path=/api/v1/orders/**
+            - id: cart
+              uri: ${CART_URI:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/cart/**
+            - id: products
+              uri: ${PRODUCT_URI:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/products/**
+
+server:
+  port: ${PORT:${GATEWAY_PORT:8080}}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
